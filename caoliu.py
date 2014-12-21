@@ -1,13 +1,15 @@
-#---------------------V1.1----------------------#
-#可以过滤指定作者的作品
 
 #coding=utf-8
 #-*- coding: UTF-8 -*-
 import urllib
 # import socket
+import time
 import urllib2
 import os
 from bs4 import BeautifulSoup
+
+#---------------------V1.2下载优化版----------------------#
+#可以过滤指定作者的作品
 
 _img_pre = ''
 _headers = {'User-Agent':'Mozilla/5.0'};
@@ -15,6 +17,7 @@ _data = ''
 _pageStart = 1
 _pageEnd = 2
 _localUrl = 'http://www.t66y.com/'
+_encode = 'gbk'
 
 def findUrl():
     global _data
@@ -22,6 +25,7 @@ def findUrl():
     global _pageStart
     global _pageEnd
     global _localUrl
+    global _encode
     
     for pageNo in range(_pageStart, _pageEnd):
         url = _localUrl + 'thread0806.php?fid=2&page=' + pageNo.__str__()
@@ -30,35 +34,60 @@ def findUrl():
         req = urllib2.Request(url, _data, _headers)
         # 打开网站代码
         data = urllib2.urlopen(req)
-        soup = BeautifulSoup(data, from_encoding='gb2312')
-        downs = soup.findAll('a', {'title':'打开新窗口'})
-        for down in downs:
-            downUrl = _localUrl + down['href'].__str__()
-            if downUrl.find('1308') == -1:
-                print 'Except url:', downUrl
-                continue
-            print '--------------------------------------------------------------------'
-            print 'Accept down url:', downUrl
-            date(downUrl)
+        soup = BeautifulSoup(data, from_encoding=_encode)
+        
+        
+        trs = soup.findAll('tr', {'class':'tr3 t_one'})
+        for tr in trs:
+            author = tr.find('a', {'class':'bl'}).string
+            url = tr.find('a', {'title':'打開新窗口'})['href'].__str__()
+            # list中移除需要被过滤的作者
+            # list中移除需要被过滤的作者
+            if author.find('第六天') == -1 and url.find('1412') != -1:
+                print '-----------------------------author:[' + author + ']-----------------------------'
+                downUrl = _localUrl + url
+                print 'Accept down url:[' + downUrl + ']'
+                date(downUrl, author)
+        
+        
+#         downs = soup.findAll('a', {'title':'打开新窗口'})
+#         for down in downs:
+#             downUrl = _localUrl + down['href'].__str__()
+#             if downUrl.find('1308') == -1:
+#                 print 'Except url:', downUrl
+#                 continue
+#             print '--------------------------------------------------------------------'
+#             print 'Accept down url:', downUrl
+#             date(downUrl)
             
-def date(url):
+def date(url, author):
     global _data
     global _headers
-    # 引号内的为网址
-    print url
-    # 按照URL地址的最终目录数创建文件夹
-    new_path = os.path.join(os.path.abspath("./"), url[-11:])
-    if not os.path.isdir(new_path):
-        os.makedirs(new_path)
+    global _encode
     # 设置超时，有的图片下不动，需要逃过去
     #socket.setdefaulttimeout(10)
     # 设置请求参数
     req = urllib2.Request(url, _data, _headers)
     # 打开网站代码
     data = urllib2.urlopen(req)
-    soup = BeautifulSoup(data, from_encoding='gb2312')
-    imgs = soup.findAll('img', {'style':'cursor:pointer'})
-    down(imgs, new_path)
+    time.sleep(3)
+    soup = BeautifulSoup(data, from_encoding = _encode)
+    # 按照URL地址的最终目录数创建文件夹
+    url = url[-12:]
+    title = soup.title.string.replace('  草榴社區  - powered by phpwind.net','') + '+' + url
+    title = title.replace('/','-').replace(':','-')
+    title = '[' + author + ']' + title
+#     print title
+    new_path = os.path.join(os.path.abspath("./down/"), title).decode('utf-8')
+    if not os.path.isdir(new_path):
+        try:
+            os.makedirs(new_path)
+        except:
+            print '.......................  Except! :(  .......................'
+        imgs = soup.findAll('img', {'style':'cursor:pointer'})
+        down(imgs, new_path)
+    else:
+        print ':::::::This url:[[' + url + ']] is downed!:::::::'
 
 def down(imgs, new_path):
     global _img_pre
@@ -70,13 +99,13 @@ def down(imgs, new_path):
         img = img['src'].__str__()
         if len(img) < 100:
             # 因为保存的是<imag src....>的格式，需要重http://格式引用
-            print '--------------------------------------------------------------------'
+#             print '--------------------------------------------------------------------'
             print "Image url:", img
             # 如果超时了，就输出time out
             try:
                 if img[-30:] == _img_pre:
-                    print "图片地址重复，不必下载"
-                    print '--------------------------------------------------------------------'
+                    print "[Repeat IMGURL]:" + img
+#                     print '--------------------------------------------------------------------'
                     continue
                 i += 1
                 imgName = i.__str__() + img[-7:]
@@ -88,7 +117,7 @@ def down(imgs, new_path):
                 urllib.urlretrieve(img, local)
                 j += 1
                 print 'Success download image[ ' + imgName + ' ]to ' + new_path[-11:]
-                print '--------------------------------------------------------------------'
+#                 print '--------------------------------------------------------------------'
                 _img_pre = img[-30:]
             except:
                 print 'Time out or download fail!'
@@ -97,6 +126,7 @@ def down(imgs, new_path):
 
 def main():
     findUrl()
+    print '***************************【END】***************************'
     #date()
 if __name__ == '__main__':
     main()
